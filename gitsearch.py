@@ -42,9 +42,9 @@ def print_commits(commits):
     for commit in commits:
         print(commit)
 
-if __name__ == '__main__':
-    import argparse
+import argparse
 
+def get_arg_parser():
     parser = argparse.ArgumentParser(
         description='Looks for LPS ticket flags in git history')
 
@@ -54,6 +54,11 @@ if __name__ == '__main__':
         help='Branch to be searched')
     parser.add_argument('tickets', nargs='+', metavar='LPS-n',
         help='Tickets to be found')
+
+    return parser
+
+if __name__ == '__main__':
+    parser = get_arg_parser()
 
     arguments = parser.parse_args()
 
