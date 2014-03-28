@@ -1,46 +1,62 @@
 #!/usr/bin/env python
 
+import os.path
+
 import git
 
-def get_ticket_flags(tickets, branch=None):
+class GitSearcher(object):
     """
-    Generate the expected flags for 'git log'
-
-    Usage:
-
-    >>> get_ticket_flags(['LPS-1', 'LPS-2'])
-    ['--grep=LPS-1', '--grep=LPS-2']
-    >>> get_ticket_flags(['LPS-1', 'LPS-2'], '6.2.x')
-    ['--grep=LPS-1', '--grep=LPS-2', '6.2.x']
+    Search commits for references for specific JIRA tickets.
     """
-    flags = ['--grep={}'.format(ticket) for ticket in tickets]
 
-    if branch:
-        flags.append(branch)
+    def __init__(self, repository=os.path.curdir, branch=None):
+        self.repository = git.Git(repository)
+        self.branch = branch
 
-    return flags
+    def get_commits(self, tickets):
+        """
+        Find all commits with the listed tickets.
 
-def get_commits(repository, branch, tickets):
-    """
-    Find all commits with the listed tickets.
+        Usage:
 
-    Usage:
+        >>> GitSearcher().get_commits(['LPS-32', 'LPS-33'])
+        ['4748d69 LPS-33 Removing example', '5fa1862 LPS-32 Just an example']
 
-    >>> get_commits(git.Git('.'), 'master', ['LPS-32', 'LPS-33'])
-    ['4748d69 LPS-33 Removing example', '5fa1862 LPS-32 Just an example']
-    """
-    flags = get_ticket_flags(tickets, branch)
+        Giving repository (current dir by default):
 
-    commits = repository.log(['--oneline'] + flags).split('\n')
+        >>> GitSearcher(repository='.').get_commits(['LPS-32', 'LPS-33'])
+        ['4748d69 LPS-33 Removing example', '5fa1862 LPS-32 Just an example']
 
-    return commits
+        Giving branch (master by default):
 
-def print_commits(commits):
-    """
-    Print the found commits
-    """
-    for commit in commits:
-        print(commit)
+        >>> GitSearcher(branch='master').get_commits(['LPS-32', 'LPS-33'])
+        ['4748d69 LPS-33 Removing example', '5fa1862 LPS-32 Just an example']
+        """
+        flags = self._get_ticket_flags(tickets)
+        commits = self.repository.log(['--oneline'] + flags).split('\n')
+
+        return commits
+
+    def _get_ticket_flags(self, tickets):
+        """
+        Generate the expected flags for 'git log'
+
+        Usage:
+
+        >>> GitSearcher()._get_ticket_flags(['LPS-1', 'LPS-2'])
+        ['--grep=LPS-1', '--grep=LPS-2']
+
+        Also, when it has a branch
+
+        >>> GitSearcher(branch='6.2.x')._get_ticket_flags(['LPS-1', 'LPS-2'])
+        ['--grep=LPS-1', '--grep=LPS-2', '6.2.x']
+        """
+        flags = ['--grep={}'.format(ticket) for ticket in tickets]
+
+        if self.branch:
+            flags.append(self.branch)
+
+        return flags
 
 import argparse
 
@@ -62,10 +78,9 @@ if __name__ == '__main__':
 
     arguments = parser.parse_args()
 
-    repository = git.Git(arguments.repository)
-    branch = arguments.branch
-    tickets = arguments .tickets
+    searcher = GitSearcher(arguments.repository, arguments.branch)
 
-    commits = get_commits(repository, branch, tickets)
+    commits = searcher.get_commits(arguments.tickets)
 
-    print_commits(commits)
+    for commit in commits:
+        print(commit)
