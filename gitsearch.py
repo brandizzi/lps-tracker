@@ -237,8 +237,15 @@ def get_arg_parser():
         help='Path to Git repository')
     parser.add_argument('-b', '--branch', dest='branch', default=None,
         help='Branch to be searched')
-    parser.add_argument('tickets', nargs='+', metavar='LPS-n',
-        help='Tickets to be found')
+
+    parser.add_argument('-s', '--server', dest='server',
+        default=LIFERAY_JIRA_SERVER, help='JIRA Server URL')
+    parser.add_argument('-u', '--username', dest='username',
+        help='JIRA user name')
+    parser.add_argument('-p', '--password', dest='password',
+        help='JIRA Password')
+    parser.add_argument('issues', nargs='+', metavar='LPE-n',
+        help='LPE issues whose related LPS issues should be found')
 
     return parser
 
