@@ -89,17 +89,16 @@ class JIRASearcher(object):
 
         >>> js = JIRASearcher(username=file('.jira_username').read(),
         ...    password=file('.jira_password').read())
-        >>> js.connect()
-        >>> issue = js.get_issue('LPE-10001')
+        >>> with js:
+        ...     issue = js.get_issue('LPE-10001')
         >>> issue
         <JIRA Issue: key=u'LPE-10001', id=u'147265'>
 
         If a issue is given, return it:
 
-        >>> js.get_issue(issue) == issue
+        >>> with js:
+        ...     js.get_issue(issue) is issue
         True
-
-        >>> js.close()
         """
         return (issue
                 if isinstance(issue, jira.client.Issue)
@@ -111,10 +110,9 @@ class JIRASearcher(object):
 
         >>> js = JIRASearcher(username=file('.jira_username').read(),
         ...    password=file('.jira_password').read())
-        >>> js.connect()
-        >>> js.get_issues(['LPE-10001', 'LPE-10002'])
+        >>> with js:
+        ...    js.get_issues(['LPE-10001', 'LPE-10002'])
         [<JIRA Issue: key=u'LPE-10001', id=u'147265'>, <JIRA Issue: key=u'LPE-10002', id=u'147267'>]
-        >>> js.close()
         """
         return [self.get_issue(issue) for issue in issues]
 
@@ -125,8 +123,8 @@ class JIRASearcher(object):
 
         >>> js = JIRASearcher(username=file('.jira_username').read(),
         ...    password=file('.jira_password').read())
-        >>> js.connect()
-        >>> js.get_related_issues('LPE-10001')
+        >>> with js:
+        ...     js.get_related_issues('LPE-10001')
         [u'LPS-41798']
         """
         issue = self.get_issue(issue)
@@ -146,11 +144,9 @@ class JIRASearcher(object):
 
         >>> js = JIRASearcher(username=file('.jira_username').read(),
         ...    password=file('.jira_password').read())
-        >>> js.connect()
-        >>> js.get_related_issues_dict(['LPE-10001', 'LPE-10002'])
+        >>> with js:
+        ...     js.get_related_issues_dict(['LPE-10001', 'LPE-10002'])
         {u'LPE-10002': [u'LPS-41981'], u'LPE-10001': [u'LPS-41798']}
-
-        >>> js.close()
         """
         issues = self.get_issues(issues)
 
@@ -166,11 +162,9 @@ class JIRASearcher(object):
 
         >>> js = JIRASearcher(username=file('.jira_username').read(),
         ...    password=file('.jira_password').read())
-        >>> js.connect()
-        >>> js.get_related_issues_set(['LPE-10001', 'LPE-10002'])
+        >>> with js:
+        ...     js.get_related_issues_set(['LPE-10001', 'LPE-10002'])
         set([u'LPS-41798', u'LPS-41981'])
-
-        >>> js.close()
         """
         related_issues = self.get_related_issues_dict(issues, project).values()
         return set(itertools.chain(*related_issues))
@@ -322,6 +316,12 @@ class JIRASearcher(object):
 
         return parameters if all(parameters.values()) else None
 
+    def __enter__(self):
+        self.connect()
+
+    def __exit__(self, type, value, traceback):
+        self.close()
+
 import argparse
 
 def get_arg_parser():
@@ -354,9 +354,8 @@ if __name__ == '__main__':
         password=arguments.password)
     issues = arguments.issues
 
-    js.connect()
-    related_issues = js.get_related_issues_set(issues)
-    js.close()
+    with js:
+        related_issues = js.get_related_issues_set(issues)
 
     commits = gs.get_commits(related_issues)
     all_logs = ''.join(commits)
