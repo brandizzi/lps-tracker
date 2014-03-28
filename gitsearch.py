@@ -58,9 +58,12 @@ class GitSearcher(object):
 
         return flags
 
+import itertools
+
 import jira.client
 
 LIFERAY_JIRA_SERVER = 'http://issues.liferay.com'
+LPS = 'LPS'
 
 class JIRASearcherException(Exception):
 
@@ -79,6 +82,98 @@ class JIRASearcher(object):
         self.oauth_parameters = self._get_oauth_parameters(access_token,
                 access_token_secret, consumer_key, key_cert)
         self.jira = None
+
+    def get_issue(self, issue):
+        """
+        Get the issue by its key.
+
+        >>> js = JIRASearcher(username=file('.jira_username').read(),
+        ...    password=file('.jira_password').read())
+        >>> js.connect()
+        >>> issue = js.get_issue('LPE-10001')
+        >>> issue
+        <JIRA Issue: key=u'LPE-10001', id=u'147265'>
+
+        If a issue is given, return it:
+
+        >>> js.get_issue(issue) == issue
+        True
+
+        >>> js.close()
+        """
+        return (issue
+                if isinstance(issue, jira.client.Issue)
+                else self.jira.issue(issue))
+
+    def get_issues(self, issues):
+        """
+        Get the issues by their keys.
+
+        >>> js = JIRASearcher(username=file('.jira_username').read(),
+        ...    password=file('.jira_password').read())
+        >>> js.connect()
+        >>> js.get_issues(['LPE-10001', 'LPE-10002'])
+        [<JIRA Issue: key=u'LPE-10001', id=u'147265'>, <JIRA Issue: key=u'LPE-10002', id=u'147267'>]
+        >>> js.close()
+        """
+        return [self.get_issue(issue) for issue in issues]
+
+    def get_related_issues(self, issue, project=LPS):
+        """
+        Get the keys of issues related to the given one which have the given
+        project.
+
+        >>> js = JIRASearcher(username=file('.jira_username').read(),
+        ...    password=file('.jira_password').read())
+        >>> js.connect()
+        >>> js.get_related_issues('LPE-10001')
+        [u'LPS-41798']
+        """
+        issue = self.get_issue(issue)
+
+        issue_links = issue.fields.issuelinks
+        raw_links = [il.raw for il in issue_links]
+        inward_issues = [rl['inwardIssue'] for rl in raw_links]
+
+        return [ii['key']
+                for ii in  inward_issues
+                if not project or ii['key'].startswith(project)]
+
+    def get_related_issues_dict(self, issues, project=LPS):
+        """
+        Get the keys of issues related to the given ones which have the given
+        project.
+
+        >>> js = JIRASearcher(username=file('.jira_username').read(),
+        ...    password=file('.jira_password').read())
+        >>> js.connect()
+        >>> js.get_related_issues_dict(['LPE-10001', 'LPE-10002'])
+        {u'LPE-10002': [u'LPS-41981'], u'LPE-10001': [u'LPS-41798']}
+
+        >>> js.close()
+        """
+        issues = self.get_issues(issues)
+
+        return {
+            issue.key: self.get_related_issues(issue.key, project)
+            for issue in issues
+        }
+
+    def get_related_issues_set(self, issues, project=LPS):
+        """
+        Get the keys of issues related to the given ones which have the given
+        project, as a set.
+
+        >>> js = JIRASearcher(username=file('.jira_username').read(),
+        ...    password=file('.jira_password').read())
+        >>> js.connect()
+        >>> js.get_related_issues_set(['LPE-10001', 'LPE-10002'])
+        set([u'LPS-41798', u'LPS-41981'])
+
+        >>> js.close()
+        """
+        related_issues = self.get_related_issues_dict(issues, project).values()
+        return set(itertools.chain(*related_issues))
 
     def connect(self):
         self.jira = jira.client.JIRA(**self._get_jira_parameters())
