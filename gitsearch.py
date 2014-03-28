@@ -349,9 +349,21 @@ if __name__ == '__main__':
 
     arguments = parser.parse_args()
 
-    searcher = GitSearcher(arguments.repository, arguments.branch)
+    gs = GitSearcher(arguments.repository, arguments.branch)
+    js = JIRASearcher(server=arguments.server, username=arguments.username,
+        password=arguments.password)
+    issues = arguments.issues
 
-    commits = searcher.get_commits(arguments.tickets)
+    js.connect()
+    related_issues = js.get_related_issues_set(issues)
+    js.close()
 
-    for commit in commits:
-        print(commit)
+    commits = gs.get_commits(related_issues)
+    all_logs = ''.join(commits)
+
+    not_found_issues = [issue
+            for issue in related_issues
+            if issue not in all_logs]
+
+    for nfi in not_found_issues:
+        print nfi
